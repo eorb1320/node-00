@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
+            crossorigin="anonymous"></script>
+    <title>게시판</title>
+    <link rel="stylesheet" href="/css/css.css">
+
+    <script>
+        const quaryString = window.location.search; // 전체 URL중 쿼리스트링(파라미터)만 반환
+        const urlParams = new URLSearchParams(quaryString); // URL의 파라미터를 다룰 수 있는 객체인 URLSearchParams 객체로 변환
+        const boardNum = urlParams.get("boardNum"); // URL의 쿼리스트링에서 '파라미터명'으로 조회된 첫번째 값을 리턴
+        // console.log(boardNum);
+
+        $(document).ready(function () {
+             if(localStorage.getItem("token")){ // 로그이 성공후 화면 시작 시 getLoginInfo 함수를 실행하여 토큰을 decode 풀라고 보냄
+                 getLoginInfo()
+             }
+             view();
+             replylist();
+        }); // 화면이 다 그려진 다음에 시작한다 $(document).ready(function 
+        // reply사용시 token decode --> nickname을 부여하기위해 
+        function getLoginInfo() { // 로그인한사람의 정보를 가져온다.
+            $.ajax({
+                type: 'POST',
+                url: '/api/loginInfo', 
+                data: {token : localStorage.getItem("token")},
+                success: function (response) {
+                    var userInfo = response.userInfo.userInfo.userNum;
+                               
+                    $("#loginuserNum").val(userInfo);  
+                    // $("#nickname").val(userInfo);
+                    $("#loginnickname").val(userInfo);
+                }
+            })
+        }
+       
+       // userNum = loginuserNum 
+
+//list.html - > view.html - > router - > view.html
+        function view(){
+            $.ajax({
+                type: 'POST',
+                url: `/api/view/${boardNum}`, 
+                data: {boardNum : boardNum},
+                success: function (response) {
+                    var viewData = response.boardInfo;
+                    // console.log(viewData)
+                    
+                    $("#title").val(viewData.title);
+                    $("#boardNum").val(viewData.boardNum);
+                    $("#userNum").val(viewData.userNum); // 글을 쓴사람 
+                    $("#nickname").val(viewData.nickname);
+                    //$("#data").val(viewData.data);
+                    $("#comment").text(viewData.comment);
+                    //let rows = response['boards']
+                    //console.log(rows)
+                    $("#password2").val(viewData.password);
+                }
+            })
+        }
+
+
+        //   loginuserNum = 로그인한사람 --- wirteuseNum = 글쓴사람
+
+        // 수정 버튼 함수, button click --> disabled :false 실행, savebtn show
+        function sendModify(){
+             if( $("#loginuserNum").val() !== $("#userNum").val()) { // loginuserNum: 로그인한사람  writeuserNum: 글쓴애 
+                 alert("작성자만 수정이가능합니다..");
+                 location.href="login.html"
+                //  console.log('login',$("#loginuserNum").val());
+                //  console.log('wirtd',$("#userNum").val());
+             } else {
+            // $("#viewboardNum").attr("disabled", false);
+            $("#title").attr("disabled", false);
+            $("#nickname").attr("disabled", false);
+            //$("#data").val(viewData.data);
+            // $("#password").attr("disabled", false);
+            $("#comment").attr("disabled", false);
+            $("#modifyBtn").hide();
+            $("#saveBtn").show();
+             }
+        }
+          
+        function sendSave(){
+            // var boardNum = $('#viewboardNum').val();
+            var title = $('#title').val();
+            var nickname = $('#nickname').val();
+            var comment = $('#comment').val();
+            var password = $('#password').val();
+            var password2 = $('#password2').val();
+            if(password!=password2){
+                alert("패스워드를 확인해주세요.");
+                return;
+            }
+            $.ajax({
+                type: 'POST',
+                url: `/api/modify/${boardNum}`, //routes/board --> write get
+                data: {
+                    userNum : userNum,
+                    boardNum : boardNum,
+                    title : title,
+                    nickname : nickname,
+                    comment : comment,
+                    password : password},
+                success: function (response) {
+                    alert("수정!")
+                    location.href = 'list.html'     // 새로고침    
+                }
+            })
+        }
+
+        // view.html --> router/delete --> ajax로 삭제 요청
+        function sendDelete(){
+            var password = $('#password').val();
+            var password2 = $('#password2').val();
+            if( $("#loginuserNum").val() !== $("#userNum").val()) { // loginuserNum: 로그인한사람  writeuserNum: 글쓴애 
+                 alert("작성자만 삭제가능합니다..");
+                 location.href="login.html"
+                 return;
+           }
+            
+            $.ajax({
+                type: 'DELETE',
+                url: `/api/delete/${boardNum}`,
+                data: {boardNum : boardNum},
+                success: function (response) {
+                    // console.log(response)
+                    if(password!=password2){
+                alert("패스워드를 확인해주세요.");
+                return;
+            }
+                 alert("삭제완료");
+                 location.href="list.html"; // page 새로고침
+                }
+            })
+        }   
+        
+
+
+        // 댓글등록 (저장)
+        function savereply() {   
+            if (!localStorage.getItem("token")) {
+                alert('로그인 후 이용하세요');
+                location.href="login.html"
+            }else if(localStorage.getItem("token")){
+                var  userNum= $('#loginuserNum').val();
+            var boardNum = $('#boardNum').val();
+            // console.log("-------",boardNum);
+            var reply = $('#reply').val();
+            var nickname = $('#loginnickname').val();  
+            $.ajax({
+               type: 'POST',
+               url: 'api/reply',
+               data: {userNum:userNum,
+                    nickname:nickname,
+                    boardNum:boardNum,
+                    reply:reply},
+                success: function(response) {
+                    // console.log(response);
+                    alert("댓글완료")
+                    replylist();
+                    getLoginInfo();
+                    location.reload();
+            
+               },
+            })
+        }
+    }
+
+    //   function  viewreply() //  나타내는거 리스트참고 
+    function replylist() {
+        $('#replylist').empty();
+        $.ajax({
+            type:'POST',
+            url:'api/replylist',
+            data:{boardNum:boardNum},
+            datatype:'json',
+            success: function(response){
+                
+                var replylist = response.replylist;
+                // console.log(replylist);
+                var str = "";
+                for(var i=0; i< replylist.length; i++){
+                    str +='<table>';
+                        str +=   '<tr>';
+                        str +=  '<td><h3 id="replyNickName_'+i+'">'+replylist[i].nickname+'</h3></td> <td> <h3 id="replyData_'+i+'">'+replylist[i].Data+'</h3></td>' ;
+
+                        str += '<td><button id="replyDelete_'+i+'" onclick="replyDelete('+replylist[i].replyNum+','+replylist[i].userNum+','+i+')">삭제</button></td>';
+
+                        str += '<td><button id="replyModifyBtn_'+i+'" onclick="replyModify('+replylist[i].replyNum+','+replylist[i].userNum+','+i+')">수정</button></td>';
+                        
+                        str += '<td><button style="display:none" id="replyModifySaveBtn_'+i+'" onclick="replyModifySave('+replylist[i].replyNum+','+replylist[i].userNum+','+i+')">저장</button></td>';
+
+                        str += '<td><button style="display:none" id="replyModifyCancle_'+i+'" onclick="replyModifyCancle('+replylist[i].replyNum+','+replylist[i].userNum+','+i+')">취소하기</button></td>';
+
+                        str +='</tr>';
+                        str +='<tr>';
+                        str += '<input type="text" id="reply_'+i+'" class="reply" value="'+replylist[i].reply+'" disabled>'
+
+                        str += '<input type="hidden" id="replyold_'+i+'"class="reply" value="'+replylist[i].reply+'"disabled>'
+                        str +='</tr>';
+                        str +='</table>';
+                }  // tr = table row, td = table
+                $('#reply_list').append(str);
+            }
+        })
+    }
+
+        
+        function replyModify(replyNum,userNum,idx){
+            //로그인한 사람의 userNum = 리플에 저장된 userNum
+            var reply = $('#reply_'+idx).val();
+            if (!localStorage.getItem("token")) {
+                alert('로그인 후 이용하세요');
+                location.reload();
+                return;
+            } 
+            if(localStorage.getItem("token")){
+                var loginuserNum = $("#loginuserNum").val();   // login user
+               
+                if(Number(loginuserNum) !== Number(userNum)){
+                    alert('댓글 작성자만 수정할 수 있습니다.')
+                    location.reload();
+                    return;
+                }else if(loginuserNum == userNum){
+                    $("#reply_"+idx).attr("disabled", false);
+                    $("#reply_"+idx).val("");
+                    $("#replyModifyBtn_"+idx).hide(); // 수정버튼
+                    $("#replyDelete_"+idx).hide(); //삭제 
+                    $("#replyModifySaveBtn_"+idx).show(); // 저장버튼 
+                    $("#replyModifyCancle_"+idx).show();// 취소 
+                    }
+                } 
+            }
+
+            function replyModifySave(replyNum, userNum,idx) {              
+                var reply = $("#reply_"+idx).val();
+                $.ajax({
+                    type: 'POST',
+                    url: `/api/replyModify/${replyNum}`,
+                    data: {reply : reply,
+                    replyNum : replyNum},  
+                    success: function (response){
+                        console.log(response)
+                        alert('댓글 수정 완료!')
+                        replylist();
+                        getLoginInfo();
+                        location.reload();
+                    }
+                })
+            }  
+
+            function replyModiCancle(replyNum, userNum,idx) {
+                var reply = $("#replyold_"+idx).val()
+                $("#reply_"+idx).attr("disabled", true);
+                $("#reply_"+idx).val(reply);
+                $("#replyModifyBtn_"+idx).show(); 
+                $("#replyDelete_"+idx).show(); 
+                $("#replyModifySaveBtn_"+idx).hide(); 
+                $("#replyModifyCancle_"+idx).hide();
+            }
+            // Reply 삭제
+            function replyDelete(replyNum,userNum){
+                        //로그인한 사람의 userNum = 리플에 저장된 userNum
+                        if (!localStorage.getItem("token")) {
+                            alert('로그인 후 이용하세요');
+                            location.reload();
+                            return;
+                        }
+                        if(localStorage.getItem("token")){
+                            var loginuserNum = $("#loginuserNum").val();   // login user
+                            // var userNum = $('#userNum').val();  // relpy user
+                            console.log('relpy dele login->',loginuserNum, 'relpy dele user->',userNum)
+                            if(Number(loginuserNum) !== Number(userNum)){  
+                                alert('댓글 작성자만 삭제할 수 있습니다.')
+                                location.reload();
+                                return;
+                            }else if(loginuserNum == userNum){
+                                if(confirm("댓글을 삭제하시겠습니까?") == true){
+                                    $.ajax({
+                                        type: 'DELETE',
+                                        url: `/api/replydelete/${replyNum}`,
+                                        data: {replyNum : replyNum},
+                                            success: function (response) {
+                                                alert("댓글 삭제완료");
+                                                location.reload();
+                                            }
+                                        })
+                                }else{
+                                    return;
+                                }
+                                
+                            } 
+                        }
+                    }  
+                   
+            
+    </script> 
+
+</head>
+<body>
+    <input type="hidden"  id="loginuserNum" value="">
+    <input type="hidden"  id="userNum" value=""> <!--화면에서 수정을 할라면 쓴사람이랑 로그인한사람이랑 비교  -->
+    <input type="hidden"  id="boardNum" value="">
+    <input type="hidden" id="loginnickname">
+    <input type="hidden" id="password2">
+    <!-- <input id="relpyUserNum" type="hidden" value=""> -->
+
+
+    <div class="board_wrap">
+        <div class="board_title">
+            <strong>게시판</strong>
+        </div>
+        <div class="board_write_wrap">
+            <div class="board_write">
+                <div class="title">
+                    <dl>
+                        <dt>제목</dt>
+                        <dd><input type="text" placeholder="제목 입력" id="title" disabled></dd>
+                    </dl>
+                </div>
+                <div class="info">
+                    <dl>
+                        <dt>글쓴이</dt>
+                        <dd><input type="text" placeholder="글쓴이 입력" id="nickname" disabled></dd>
+                    </dl>
+                    <dl>
+                        <dt>비밀번호</dt>
+                        <dd><input type="password" placeholder="비밀번호 입력" id="password"></dd>
+                    </dl>
+                </div>
+                <div class="cont">
+                    <textarea placeholder="내용 입력" id="comment" disabled></textarea>
+                </div>
+            </div>
+            <div class="bt_wrap">
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"  onclick="sendModify()" id="modifyBtn">수정하기</button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"  onclick="sendSave()" id="saveBtn" style="display:none">저장하기</button>
+                <button type="button" onclick="sendDelete()">삭제</button>
+                <button type="button" onclick="location.href='list.html';">취소</button>
+            </div>
+        </div>
+             
+        <dl>
+            <h1>댓글쓰기</h1>
+            <div class="cont">
+                <input placeholder="내용 입력" id="reply" ></input>
+                <button type="button" onclick="savereply()">댓글저장</button>
+            </div>
+
+            <div class="cont" id="reply_list"> 
+                <div>
+                    <h3 id="replyData"></h3>
+                </div>
+        </dl>       
+    </div>
+</body>
+</html>

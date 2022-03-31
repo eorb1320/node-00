@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>게시판 list</title>
+    <link rel="stylesheet" href="css/css.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
+            crossorigin="anonymous"></script>
+    <script>
+        var idToken = localStorage.getItem("token");
+        // 
+
+        
+        $(document).ready(function () {
+            if(idToken!=null){ // idToken값이 null이 아니면 null이 아니라는 뜻은 로그인이 됬다는 뜻이니 
+                $("#signOutBtn").show(); // 로그아웃을 보여주고
+                $("#signInBtn").hide();  // 로그인을 안보여준다
+            }else{
+                $("#signOutBtn").hide(); // 로그아웃을 안보여주고
+                $("#signInBtn").show(); // 로그인을 보여준다. 
+            }
+            list(); //page loading 완료 후 function list 함수 실행
+        });
+        
+        function list() { 
+            $.ajax({
+                type: 'GET', // html ajax로 router/list로 get 데이터 요청
+                url: '/api/list', //routes/board --> list get res   list?id=5&userNum=-1 
+                dataType:'json',
+                data: {},
+                // -------------db에서 라우터로 값을 주고 (널이든 언디파이든) -> 에이젝스에서 그 라우터에서 보낸값을 받아  -> 받은값으로 html에다가 나타냄
+                success: function (response) { //response = write
+                    var boardList = response.write;
+                    // console.log(boardList);
+                    var str = "";
+                    for(var i=0;i<boardList.length;i++){
+                        str+='<div>';
+                        str+='<div class="num">'+boardList[i].boardNum+'</div>';
+                        str+='<div class="title"><a href=/view.html?boardNum='+boardList[i].boardNum+'>'+boardList[i].title+'</a></div>';
+                        str+='<div class="nickname">'+boardList[i].nickname+'</div>';
+                        str+='<div class="date">'+boardList[i].data+'</div>';
+                        str+='</div>';
+                    }
+                    console.log(str);
+                    $('#board_list').append(str); // append : html에서 사용하겠다.
+                }
+            })
+        }
+        function signOut(){
+            localStorage.removeItem("token");
+            location.href='login.html';
+        }
+        function writeBtn(){
+            if(idToken!=null){
+                location.href='write.html';
+            }else{
+                alert("로그인을 해주세요.");
+                return;
+            }            
+            
+        }
+       
+    </script>
+</head>
+<body>
+    <div class="board_wrap">
+        <div class="board_title">
+            <strong>게시판 list</strong>
+            <button type="button" class="login-btn" onclick="location.href='login.html'" id="signInBtn" style="display:none;">로그인하기</button>
+
+            <button type="button" class="login-btn" onclick="signOut()" id="signOutBtn" style="display:none;">로그아웃</button>
+        </div>
+        <div class="board_list_wrap">
+            <div class="board_list" id='board_list'>
+                <div class="top">
+                    <div class="num">번호</div> 
+                    <div class="title">제목</div>
+                    <div class="nickname">글쓴이</div>
+                    <div class="date">작성일</div>
+                </div>
+               
+            </div>
+            
+            <div class="bt_wrap">
+                <button onclick="writeBtn()"><a>등록</a></button>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 
